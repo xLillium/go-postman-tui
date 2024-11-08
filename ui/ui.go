@@ -1,19 +1,24 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/xlillium/go-postman-tui/handlers"
 )
 
 // UI struct holds all UI components
 type UI struct {
-	App       *tview.Application
-	Flex      *tview.Flex
-	LeftBox   *tview.Box
-	TopInput  *tview.InputField
-	MiddleBox *tview.TextView
-	BottomBox *tview.TextView
-	RightBox  *tview.Box
+	App            *tview.Application
+	Flex           *tview.Flex
+	LeftBox        *tview.Box
+	MethodDropdown *tview.DropDown
+	UrlInput       *tview.InputField
+	BodyInput      *tview.InputField
+	ResponseBox    *tview.TextView
+	ConsoleBox     *tview.TextView
+	RightBox       *tview.Box
 }
 
 // NewUI creates and configures the UI components
@@ -23,62 +28,193 @@ func NewUI(app *tview.Application) *UI {
 	// Left Box
 	leftBox := createBox("Left (1/2 x width of Top)")
 
-	// Top Input Field
-	topInput := createInputField("URL: ", "Enter URL and press Enter", "http://api.github.com")
+	// HTTP Method DropDown
+	methodDropDown := tview.NewDropDown().
+		SetOptions([]string{"GET", "POST"}, nil).
+		SetCurrentOption(0).
+		SetFieldWidth(4).
+		SetFieldBackgroundColor(tcell.ColorDefault)
+	methodDropDown.
+		SetBorder(true).
+		SetTitle("Method").
+		SetTitleAlign(tview.AlignLeft)
+
+		// Url Input Field (URL input)
+	urlInput := tview.NewInputField().
+		SetPlaceholder("http://api.github.com").
+		SetPlaceholderStyle(tcell.StyleDefault.Background(tcell.ColorDefault)).
+		SetFieldBackgroundColor(tcell.ColorDefault)
+	urlInput.
+		SetBorder(true).
+		SetTitle("URL").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Url Input Row (Method Dropdown and URL Input)
+	urlInputRow := tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(methodDropDown, 10, 0, false).
+		AddItem(urlInput, 0, 1, true)
+
+	// Request Body Input Field (for POST)
+	bodyInput := tview.NewInputField().
+		SetLabel("").
+		SetFieldWidth(0).
+		SetFieldBackgroundColor(tcell.ColorDefault)
+
+	bodyInput.
+		SetBorder(true).
+		SetTitle("Body").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Request Box (Input Row and Body Input)
+	requestBox := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(urlInputRow, 3, 1, true)
 
 	// Middle TextView
-	middleBox := createTextView("Response", true)
+	responseBox := createTextView("Response", true)
 
 	// Bottom TextView
-	bottomBox := createTextView("Console", true)
+	consoleBox := createTextView("Console", true)
 
 	// Right Box
 	rightBox := createBox("Right (20 cols)")
 
-	// Main Layout
-	flex := tview.NewFlex()
+	// Main Flex Layout
+	innerFlex := tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(requestBox, 0, 1, true).
+		AddItem(responseBox, 0, 3, false).
+		AddItem(consoleBox, 5, 1, false)
 
-	// Nested Flex
-	innerFlex := tview.NewFlex().SetDirection(tview.FlexRow)
+	flex := tview.NewFlex().
+		AddItem(leftBox, 0, 1, false).
+		AddItem(innerFlex, 0, 2, true).
+		AddItem(rightBox, 20, 1, false)
 
-	// Add items to the inner flex
-	innerFlex.AddItem(topInput, 3, 1, true) // Set focus to the input field
-	innerFlex.AddItem(middleBox, 0, 3, false)
-	innerFlex.AddItem(bottomBox, 5, 1, false)
+	// Initialize the UI struct
+	ui := &UI{
+		App:            app,
+		Flex:           flex,
+		LeftBox:        leftBox,
+		MethodDropdown: methodDropDown,
+		UrlInput:       urlInput,
+		BodyInput:      bodyInput,
+		ResponseBox:    responseBox,
+		ConsoleBox:     consoleBox,
+		RightBox:       rightBox,
+	}
 
-	// Add items to the main flex
-	flex.AddItem(leftBox, 0, 1, false)
-	flex.AddItem(innerFlex, 0, 2, true) // Set focus to enable input
-	flex.AddItem(rightBox, 20, 1, false)
+	// Function to perform the request
+	performRequest := func() {
+		url := urlInput.GetText()
+		methodIndex, _ := methodDropDown.GetCurrentOption()
+		methodText := []string{"GET", "POST"}[methodIndex]
+		body := bodyInput.GetText()
 
-	// Set InputCapture for middleBox
-	middleBox.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		go func() {
+			var formattedResponse, status string
+			var err error
+
+			formattedResponse, status, err = handlers.PerformRequest(methodText, url, body)
+
+			ui.App.QueueUpdateDraw(func() {
+				if err != nil {
+					ui.ConsoleBox.SetText(fmt.Sprintf("[red]%v", err))
+					ui.ResponseBox.SetText("")
+				} else {
+					ui.ResponseBox.SetText(formattedResponse)
+					ui.ConsoleBox.SetText(fmt.Sprintf("[green]Request successful (%s)", status))
+					ui.App.SetFocus(ui.ResponseBox)
+				}
+			})
+		}()
+	}
+
+	// Update the visibility of bodyInput based on the selected method
+	updateInputFlex := func() {
+		method, _ := methodDropDown.GetCurrentOption()
+		if method == 1 { // POST method
+			if requestBox.GetItemCount() < 2 {
+				requestBox.AddItem(bodyInput, 3, 1, false)
+			}
+		} else {
+			if requestBox.GetItemCount() == 2 {
+				requestBox.RemoveItem(bodyInput)
+			}
+		}
+		// app.Draw()
+	}
+
+	// Set a handler for when the selected option changes
+	methodDropDown.SetSelectedFunc(func(text string, index int) {
+		go func() {
+			app.QueueUpdateDraw(func() {
+				updateInputFlex()
+			})
+		}()
+	})
+
+	// Initial call to set the correct state
+	updateInputFlex()
+
+	// InputCapture for methodDropDown
+	methodDropDown.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyTab, tcell.KeyRight:
+			app.SetFocus(urlInput)
+			return nil
+			// case tcell.KeyEnter:
+			// 	return nil
+		}
+		return event
+	})
+
+	// InputCapture for topInput
+	urlInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyTab, tcell.KeyLeft:
+			app.SetFocus(methodDropDown)
+			return nil
+		case tcell.KeyEnter:
+			method, _ := methodDropDown.GetCurrentOption()
+			if method == 1 { // POST method
+				app.SetFocus(bodyInput)
+			} else {
+				performRequest()
+			}
+			return nil
+		}
+		return event
+	})
+
+	// InputCapture for bodyInput
+	bodyInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyTab:
-			app.SetFocus(topInput)
+			app.SetFocus(responseBox)
+			return nil
+		case tcell.KeyEnter:
+			performRequest()
 			return nil
 		}
 		return event
 	})
 
-	// Set InputCapture for topInput
-	topInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyTab {
-			app.SetFocus(middleBox)
+	// InputCapture for methodDropDown
+	responseBox.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyTab, tcell.KeyRight:
+			app.SetFocus(urlInput)
 			return nil
+			// case tcell.KeyEnter:
+			// 	return nil
 		}
 		return event
 	})
 
-	return &UI{
-		App:       app,
-		Flex:      flex,
-		LeftBox:   leftBox,
-		TopInput:  topInput,
-		MiddleBox: middleBox,
-		BottomBox: bottomBox,
-		RightBox:  rightBox,
-	}
+	// Return the UI struct
+	return ui
 }
 
 // Helper functions

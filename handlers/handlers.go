@@ -16,11 +16,10 @@ import (
 	"github.com/alecthomas/chroma/styles"
 
 	"github.com/xlillium/go-postman-tui/formatters"
-	"github.com/xlillium/go-postman-tui/ui"
 )
 
 // PerformGetRequest performs a GET request with a timeout and updates the UI
-func PerformGetRequest(url string, ui *ui.UI) {
+func PerformGetRequest(url string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -29,48 +28,77 @@ func PerformGetRequest(url string, ui *ui.UI) {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		ui.App.QueueUpdateDraw(func() {
-			ui.BottomBox.SetText(fmt.Sprintf("[red]Error creating request: %v", err))
-			ui.MiddleBox.SetText("")
-		})
-		return
+		return "", "", fmt.Errorf("Error creating request: %v", err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		ui.App.QueueUpdateDraw(func() {
-			ui.BottomBox.SetText(fmt.Sprintf("[red]Error: %v", err))
-			ui.MiddleBox.SetText("")
-		})
-		return
+		return "", "", fmt.Errorf("Error: %v", err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		ui.App.QueueUpdateDraw(func() {
-			ui.BottomBox.SetText(fmt.Sprintf("[red]Error reading response: %v", err))
-			ui.MiddleBox.SetText("")
-		})
-		return
+		return "", "", fmt.Errorf("Error reading response: %v", err)
 	}
 
 	// Format the response
 	formattedResponse, err := formatResponse(bodyBytes, resp.Header.Get("Content-Type"))
 	if err != nil {
-		ui.App.QueueUpdateDraw(func() {
-			ui.BottomBox.SetText(fmt.Sprintf("[red]Error formatting response: %v", err))
-			ui.MiddleBox.SetText("")
-		})
-		return
+		return "", "", fmt.Errorf("Error formatting response: %v", err)
 	}
 
-	ui.App.QueueUpdateDraw(func() {
-		ui.MiddleBox.SetText(formattedResponse)
-		ui.BottomBox.SetText(fmt.Sprintf("[green]Request successful (%s)", resp.Status))
-		ui.App.SetFocus(ui.MiddleBox) // Set focus to middleBox
-	})
+	return formattedResponse, resp.Status, nil
+}
 
+// Similar changes for PerformRequest
+func PerformRequest(method, url, body string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if url == "" {
+		url = "http://api.github.com"
+	}
+
+	var req *http.Request
+	var err error
+
+	if method == "GET" {
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	} else if method == "POST" {
+		var jsonBody interface{}
+		err := json.Unmarshal([]byte(body), &jsonBody)
+		if err != nil {
+			return "", "", fmt.Errorf("Invalid JSON: %v", err)
+		}
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+	} else {
+		return "", "", fmt.Errorf("Unsupported method: %s", method)
+	}
+
+	if err != nil {
+		return "", "", fmt.Errorf("Error creating request: %v", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("Error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", fmt.Errorf("Error reading response: %v", err)
+	}
+
+	// Format the response
+	formattedResponse, err := formatResponse(bodyBytes, resp.Header.Get("Content-Type"))
+	if err != nil {
+		return "", "", fmt.Errorf("Error formatting response: %v", err)
+	}
+
+	return formattedResponse, resp.Status, nil
 }
 
 func formatResponse(body []byte, contentType string) (string, error) {
