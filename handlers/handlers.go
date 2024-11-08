@@ -9,7 +9,6 @@ import (
 
 	"bytes"
 	"encoding/json"
-	"github.com/rivo/tview"
 	"strings"
 
 	"github.com/alecthomas/chroma"
@@ -17,27 +16,31 @@ import (
 	"github.com/alecthomas/chroma/styles"
 
 	"github.com/xlillium/go-postman-tui/formatters"
+	"github.com/xlillium/go-postman-tui/ui"
 )
 
 // PerformGetRequest performs a GET request with a timeout and updates the UI
-func PerformGetRequest(url string, middleBox, bottomBox *tview.TextView, app *tview.Application) {
+func PerformGetRequest(url string, ui *ui.UI) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	if url == "" {
+		url = "http://api.github.com"
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		app.QueueUpdateDraw(func() {
-			bottomBox.SetText(fmt.Sprintf("[red]Error creating request: %v", err))
-			middleBox.SetText("")
+		ui.App.QueueUpdateDraw(func() {
+			ui.BottomBox.SetText(fmt.Sprintf("[red]Error creating request: %v", err))
+			ui.MiddleBox.SetText("")
 		})
 		return
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		app.QueueUpdateDraw(func() {
-			bottomBox.SetText(fmt.Sprintf("[red]Error: %v", err))
-			middleBox.SetText("")
+		ui.App.QueueUpdateDraw(func() {
+			ui.BottomBox.SetText(fmt.Sprintf("[red]Error: %v", err))
+			ui.MiddleBox.SetText("")
 		})
 		return
 	}
@@ -45,28 +48,27 @@ func PerformGetRequest(url string, middleBox, bottomBox *tview.TextView, app *tv
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		app.QueueUpdateDraw(func() {
-			bottomBox.SetText(fmt.Sprintf("[red]Error reading response: %v", err))
-			middleBox.SetText("")
+		ui.App.QueueUpdateDraw(func() {
+			ui.BottomBox.SetText(fmt.Sprintf("[red]Error reading response: %v", err))
+			ui.MiddleBox.SetText("")
 		})
 		return
 	}
-
-	// bodyString := string(bodyBytes)
 
 	// Format the response
 	formattedResponse, err := formatResponse(bodyBytes, resp.Header.Get("Content-Type"))
 	if err != nil {
-		app.QueueUpdateDraw(func() {
-			bottomBox.SetText(fmt.Sprintf("[red]Error formatting response: %v", err))
-			middleBox.SetText("")
+		ui.App.QueueUpdateDraw(func() {
+			ui.BottomBox.SetText(fmt.Sprintf("[red]Error formatting response: %v", err))
+			ui.MiddleBox.SetText("")
 		})
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
-		middleBox.SetText(formattedResponse)
-		bottomBox.SetText(fmt.Sprintf("[green]Request successful (%s)", resp.Status))
+	ui.App.QueueUpdateDraw(func() {
+		ui.MiddleBox.SetText(formattedResponse)
+		ui.BottomBox.SetText(fmt.Sprintf("[green]Request successful (%s)", resp.Status))
+		ui.App.SetFocus(ui.MiddleBox) // Set focus to middleBox
 	})
 
 }

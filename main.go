@@ -18,7 +18,7 @@ func main() {
 		if key == tcell.KeyEnter {
 			url := ui.TopInput.GetText()
 			go func() {
-				handlers.PerformGetRequest(url, ui.MiddleBox, ui.BottomBox, ui.App)
+				handlers.PerformGetRequest(url, ui)
 			}()
 		}
 	})

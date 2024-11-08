@@ -24,11 +24,10 @@ func NewUI(app *tview.Application) *UI {
 	leftBox := createBox("Left (1/2 x width of Top)")
 
 	// Top Input Field
-	topInput := createInputField("URL: ", "Enter URL and press Enter", 50)
+	topInput := createInputField("URL: ", "Enter URL and press Enter", "http://api.github.com")
 
 	// Middle TextView
 	middleBox := createTextView("Response", true)
-	middleBox.SetWrap(true)
 
 	// Bottom TextView
 	bottomBox := createTextView("Console", true)
@@ -52,6 +51,25 @@ func NewUI(app *tview.Application) *UI {
 	flex.AddItem(innerFlex, 0, 2, true) // Set focus to enable input
 	flex.AddItem(rightBox, 20, 1, false)
 
+	// Set InputCapture for middleBox
+	middleBox.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyTab:
+			app.SetFocus(topInput)
+			return nil
+		}
+		return event
+	})
+
+	// Set InputCapture for topInput
+	topInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			app.SetFocus(middleBox)
+			return nil
+		}
+		return event
+	})
+
 	return &UI{
 		App:       app,
 		Flex:      flex,
@@ -73,7 +91,8 @@ func createBox(title string) *tview.Box {
 func createTextView(title string, wrap bool) *tview.TextView {
 	textView := tview.NewTextView().
 		SetWrap(wrap).
-		SetDynamicColors(true)
+		SetDynamicColors(true).
+		SetScrollable(true)
 
 	textView.
 		SetBorder(true).
@@ -83,11 +102,11 @@ func createTextView(title string, wrap bool) *tview.TextView {
 	return textView
 }
 
-func createInputField(label, title string, fieldWidth int) *tview.InputField {
+func createInputField(label, title string, placeholder string) *tview.InputField {
 	inputField := tview.NewInputField().
 		SetLabel(label).
-		// SetLabelColor(tcell.ColorDefault).
-		SetFieldWidth(fieldWidth).
+		SetPlaceholder(placeholder).
+		SetPlaceholderStyle(tcell.StyleDefault.Background(tcell.ColorDefault)).
 		SetFieldBackgroundColor(tcell.ColorDefault)
 
 	inputField.
