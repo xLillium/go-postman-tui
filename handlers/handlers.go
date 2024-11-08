@@ -1,79 +1,43 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
-
-	"bytes"
-	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/chroma"
 	"github.com/alecthomas/chroma/lexers"
 	"github.com/alecthomas/chroma/styles"
-
 	"github.com/xlillium/go-postman-tui/formatters"
 )
 
-// PerformGetRequest performs a GET request with a timeout and updates the UI
-func PerformGetRequest(url string) (string, string, error) {
+// PerformRequest performs an HTTP request with the specified method, URL, and body.
+func PerformRequest(method, url, body string) (formattedResponse string, status string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if url == "" {
-		url = "http://api.github.com"
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("Error creating request: %v", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", "", fmt.Errorf("Error: %v", err)
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", fmt.Errorf("Error reading response: %v", err)
-	}
-
-	// Format the response
-	formattedResponse, err := formatResponse(bodyBytes, resp.Header.Get("Content-Type"))
-	if err != nil {
-		return "", "", fmt.Errorf("Error formatting response: %v", err)
-	}
-
-	return formattedResponse, resp.Status, nil
-}
-
-// Similar changes for PerformRequest
-func PerformRequest(method, url, body string) (string, string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if url == "" {
-		url = "http://api.github.com"
+		return "", "", fmt.Errorf("URL cannot be empty")
 	}
 
 	var req *http.Request
-	var err error
 
-	if method == "GET" {
+	// Prepare request based on method
+	switch method {
+	case "GET":
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	} else if method == "POST" {
-		var jsonBody interface{}
-		err := json.Unmarshal([]byte(body), &jsonBody)
-		if err != nil {
-			return "", "", fmt.Errorf("Invalid JSON: %v", err)
+	case "POST":
+		if !isValidJSON(body) {
+			return "", "", fmt.Errorf("Invalid JSON in request body")
 		}
 		req, err = http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-	} else {
+	default:
 		return "", "", fmt.Errorf("Unsupported method: %s", method)
 	}
 
@@ -81,19 +45,21 @@ func PerformRequest(method, url, body string) (string, string, error) {
 		return "", "", fmt.Errorf("Error creating request: %v", err)
 	}
 
+	// Perform the HTTP request
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("Error: %v", err)
+		return "", "", fmt.Errorf("Error performing request: %v", err)
 	}
 	defer resp.Body.Close()
 
+	// Read the response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", fmt.Errorf("Error reading response: %v", err)
 	}
 
 	// Format the response
-	formattedResponse, err := formatResponse(bodyBytes, resp.Header.Get("Content-Type"))
+	formattedResponse, err = formatResponse(bodyBytes, resp.Header.Get("Content-Type"))
 	if err != nil {
 		return "", "", fmt.Errorf("Error formatting response: %v", err)
 	}
@@ -101,9 +67,15 @@ func PerformRequest(method, url, body string) (string, string, error) {
 	return formattedResponse, resp.Status, nil
 }
 
+// isValidJSON checks if a string is valid JSON.
+func isValidJSON(data string) bool {
+	var js interface{}
+	return json.Unmarshal([]byte(data), &js) == nil
+}
+
+// formatResponse formats the response body based on Content-Type.
 func formatResponse(body []byte, contentType string) (string, error) {
 	var lexer chroma.Lexer
-	var err error
 
 	// Select lexer based on Content-Type
 	switch {
@@ -112,7 +84,7 @@ func formatResponse(body []byte, contentType string) (string, error) {
 
 		// Pretty-print JSON
 		var prettyJSON bytes.Buffer
-		err = json.Indent(&prettyJSON, body, "", "  ")
+		err := json.Indent(&prettyJSON, body, "", "  ")
 		if err != nil {
 			return "", err
 		}
@@ -149,3 +121,4 @@ func formatResponse(body []byte, contentType string) (string, error) {
 
 	return buff.String(), nil
 }
+

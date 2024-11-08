@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/rivo/tview"
@@ -9,13 +8,11 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting application...")
-
 	app := tview.NewApplication()
-	ui := ui.NewUI(app)
+	ui := ui.InitializeUI(app)
 
 	// Start the application
-	if err := app.SetRoot(ui.Flex, true).SetFocus(ui.UrlInput).Run(); err != nil {
+	if err := app.SetRoot(ui.Layout, true).SetFocus(ui.URLInputField).Run(); err != nil {
 		log.Fatalf("Error running application: %v", err)
 	}
 }
