@@ -44,6 +44,40 @@ func (ui *UI) setupComponents() {
 
 	// Console TextView
 	ui.ConsoleTextView = createTextView("Console", true)
+
+	//
+	//  Save Request Dialog Components
+	//
+
+	// Request Name Input Field
+	ui.requestNameInputfield = tview.NewInputField().
+		SetLabel("Name: ").
+		SetPlaceholder("My Request Name").
+		SetPlaceholderStyle(tcell.StyleDefault.Background(tcell.ColorDefault).Foreground(tcell.ColorGrey)).
+		SetFieldBackgroundColor(tcell.ColorDefault)
+
+	// Save Request Button
+	ui.saveRequestButton = tview.NewButton("Save").
+		SetStyle(tcell.StyleDefault.Background(tcell.ColorLightGrey).Foreground(tcell.ColorGrey)).
+		SetActivatedStyle(tcell.StyleDefault.Background(tcell.ColorGrey).Foreground(tcell.ColorLightGrey)).
+		SetSelectedFunc(func() {
+			ui.Pages.ShowPage("main")
+			ui.Pages.HidePage("saveRequestDialog")
+			ui.ConsoleTextView.SetText("Saved Request : " + ui.requestNameInputfield.GetText())
+			ui.requestNameInputfield.SetText("")
+		})
+
+	// Cancel Save Request Button
+	ui.cancelSaveRequestButton = tview.NewButton("Cancel").
+		SetStyle(tcell.StyleDefault.Background(tcell.ColorLightGray).Foreground(tcell.ColorGrey)).
+		SetActivatedStyle(tcell.StyleDefault.Background(tcell.ColorGrey).Foreground(tcell.ColorLightGrey)).
+		SetSelectedFunc(func() {
+			ui.Pages.ShowPage("main")
+			ui.Pages.HidePage("saveRequestDialog")
+			ui.ConsoleTextView.SetText("Canceled Save Request : " + ui.requestNameInputfield.GetText())
+			ui.requestNameInputfield.SetText("")
+		})
+
 }
 
 func createTextView(title string, wrap bool) *tview.TextView {

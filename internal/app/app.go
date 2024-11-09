@@ -10,5 +10,5 @@ func Run() error {
 	ui := ui.Initialize(app)
 
 	// Start the application
-	return app.SetRoot(ui.RootLayout, true).SetFocus(ui.InitialFocus).EnableMouse(true).Run()
+	return app.SetRoot(ui.Pages, true).SetFocus(ui.InitialFocus).EnableMouse(true).Run()
 }

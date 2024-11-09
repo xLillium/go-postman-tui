@@ -117,6 +117,58 @@ func (ui *UI) setupEventHandlers() {
 		return event
 	})
 
+	//
+	//  Save Request Dialog event handlers
+	//
+
+	// Request Name Input Field event handlers
+	ui.requestNameInputfield.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			ui.App.SetFocus(ui.saveRequestButton)
+			return nil
+		} else if event.Key() == tcell.KeyEnter {
+			ui.Pages.ShowPage("main")
+			ui.Pages.HidePage("saveRequestDialog")
+			ui.ConsoleTextView.SetText("Saved Request : " + ui.requestNameInputfield.GetText())
+			ui.requestNameInputfield.SetText("")
+		}
+
+		return event
+	})
+
+	// Save Request Button event handlers
+	ui.saveRequestButton.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			ui.App.SetFocus(ui.cancelSaveRequestButton)
+			return nil
+		}
+		return event
+	})
+
+	// Cancel Request Button event handlers
+	ui.cancelSaveRequestButton.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTab {
+			ui.App.SetFocus(ui.requestNameInputfield)
+			return nil
+		}
+		return event
+	})
+
 	// Initial call to set the correct state
 	updateRequestFlex()
+}
+
+func (ui *UI) setupGlobalKeybindings() {
+	ui.App.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Modifiers() == tcell.ModCtrl {
+			switch event.Name() {
+			case "Ctrl+S":
+				ui.Pages.ShowPage("saveRequestDialog")
+				ui.Pages.HidePage("main")
+				ui.ConsoleTextView.SetText("titi")
+				return nil
+			}
+		}
+		return event
+	})
 }
