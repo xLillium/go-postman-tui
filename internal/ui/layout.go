@@ -5,6 +5,12 @@ import (
 )
 
 func (ui *UI) setupLayout() {
+	// Left panel for saved requests
+	ui.RequestList = tview.NewList()
+	ui.RequestList.
+		SetBorder(true).
+		SetTitle("Saved Requests").
+		SetTitleAlign(tview.AlignLeft)
 	// Combine Method Dropdown and URL Input Field horizontally
 	requestHeaderFlex := tview.NewFlex().
 		SetDirection(tview.FlexColumn).
@@ -16,12 +22,18 @@ func (ui *UI) setupLayout() {
 		SetDirection(tview.FlexRow).
 		AddItem(requestHeaderFlex, 3, 1, true)
 
-	// Main layout
-	ui.RootLayout = tview.NewFlex().
+	// Main layout (request form, response, console)
+	mainContent := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(ui.RequestFlex, 0, 1, true).
 		AddItem(ui.ResponseTextView, 0, 3, false).
 		AddItem(ui.ConsoleTextView, 5, 1, false)
+
+	// Root layout with left panel
+	ui.RootLayout = tview.NewFlex().
+		SetDirection(tview.FlexColumn).
+		AddItem(ui.RequestList, 30, 0, false). // Left panel width
+		AddItem(mainContent, 0, 1, true)
 
 	buttonsFlex := tview.NewFlex().
 		AddItem(nil, 2, 1, false).

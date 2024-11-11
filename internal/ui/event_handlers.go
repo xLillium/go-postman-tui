@@ -49,6 +49,22 @@ func (ui *UI) setupEventHandlers() {
 		}
 	}
 
+	// Saved Requests event handler
+	ui.RequestList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEnter {
+			requests := ui.Storage.GetRequests()
+			index := ui.RequestList.GetCurrentItem()
+			req := requests[index]
+			ui.MethodDropdown.SetCurrentOption(req.Method)
+			ui.URLInputField.SetText(req.URL)
+			ui.BodyInputField.SetText(req.Body)
+			ui.ResponseTextView.SetText(req.Response)
+			ui.ConsoleTextView.SetText(fmt.Sprintf("[green]Loaded request '%s'", req.Name))
+			return nil
+		}
+		return event
+	})
+
 	// Method Dropdown event handlers
 	ui.MethodDropdown.SetSelectedFunc(func(text string, index int) {
 		go func() {
@@ -131,13 +147,14 @@ func (ui *UI) setupEventHandlers() {
 			methodIndex, _ := ui.MethodDropdown.GetCurrentOption()
 			req := domain.Request{
 				Name:     ui.requestNameInputfield.GetText(),
-				Method:   utils.SupportedMethods[methodIndex],
+				Method:   methodIndex,
 				URL:      ui.URLInputField.GetText(),
 				Body:     ui.BodyInputField.GetText(),
-				Response: ui.ResponseTextView.GetText(true),
+				Response: ui.ResponseTextView.GetText(false),
 			}
 			ui.Storage.AddRequest(req)
 			ui.Storage.Save()
+			ui.RequestList.AddItem(req.Name, "", 0, nil)
 			ui.Pages.ShowPage("main")
 			ui.Pages.HidePage("saveRequestDialog")
 			ui.ConsoleTextView.SetText("Saved Request : " + req.Name)
@@ -172,12 +189,15 @@ func (ui *UI) setupEventHandlers() {
 func (ui *UI) setupGlobalKeybindings() {
 	ui.App.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Modifiers() == tcell.ModCtrl {
+			ui.ConsoleTextView.SetText(event.Name())
 			switch event.Name() {
 			case "Ctrl+S":
 				ui.Pages.ShowPage("saveRequestDialog")
 				ui.Pages.HidePage("main")
-				ui.ConsoleTextView.SetText("titi")
 				return nil
+			case "Ctrl+A":
+				ui.ConsoleTextView.SetText("request list")
+				ui.App.SetFocus(ui.RequestList)
 			}
 		}
 		return event

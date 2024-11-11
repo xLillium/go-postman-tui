@@ -12,6 +12,8 @@ type UI struct {
 	InitialFocus tview.Primitive
 	Storage      *storage.Storage
 
+	// Saved Requests Panel
+	RequestList *tview.List
 	// Dialog Components
 	requestNameInputfield   *tview.InputField
 	saveRequestButton       *tview.Button
@@ -27,15 +29,19 @@ type UI struct {
 
 func Initialize(app *tview.Application) *UI {
 	ui := &UI{
-		App: app,
-		        Storage: storage.NewStorage("requests.json"),
-
+		App:     app,
+		Storage: storage.NewStorage("requests.json"),
 	}
 
 	ui.setupComponents()
 	ui.setupLayout()
 	ui.setupEventHandlers()
 	ui.setupGlobalKeybindings()
+	requests := ui.Storage.GetRequests()
+	ui.RequestList.Clear()
+	for _, req := range requests {
+		ui.RequestList.AddItem(req.Name, "", 0, nil)
+	}
 
 	return ui
 }
