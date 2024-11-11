@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/xlillium/go-postman-tui/internal/domain"
 	"github.com/xlillium/go-postman-tui/internal/handlers"
 	"github.com/xlillium/go-postman-tui/internal/utils"
 )
@@ -127,9 +128,19 @@ func (ui *UI) setupEventHandlers() {
 			ui.App.SetFocus(ui.saveRequestButton)
 			return nil
 		} else if event.Key() == tcell.KeyEnter {
+			methodIndex, _ := ui.MethodDropdown.GetCurrentOption()
+			req := domain.Request{
+				Name:     ui.requestNameInputfield.GetText(),
+				Method:   utils.SupportedMethods[methodIndex],
+				URL:      ui.URLInputField.GetText(),
+				Body:     ui.BodyInputField.GetText(),
+				Response: ui.ResponseTextView.GetText(true),
+			}
+			ui.Storage.AddRequest(req)
+			ui.Storage.Save()
 			ui.Pages.ShowPage("main")
 			ui.Pages.HidePage("saveRequestDialog")
-			ui.ConsoleTextView.SetText("Saved Request : " + ui.requestNameInputfield.GetText())
+			ui.ConsoleTextView.SetText("Saved Request : " + req.Name)
 			ui.requestNameInputfield.SetText("")
 		}
 

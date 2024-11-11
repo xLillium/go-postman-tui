@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/rivo/tview"
+	"github.com/xlillium/go-postman-tui/internal/storage"
 )
 
 type UI struct {
@@ -9,6 +10,7 @@ type UI struct {
 	Pages        *tview.Pages
 	RootLayout   *tview.Flex
 	InitialFocus tview.Primitive
+	Storage      *storage.Storage
 
 	// Dialog Components
 	requestNameInputfield   *tview.InputField
@@ -26,6 +28,8 @@ type UI struct {
 func Initialize(app *tview.Application) *UI {
 	ui := &UI{
 		App: app,
+		        Storage: storage.NewStorage("requests.json"),
+
 	}
 
 	ui.setupComponents()
